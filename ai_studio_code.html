@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>飞书 FaaS 应用复刻版</title>
+    <!-- 1. 样式库 (Tailwind CSS) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Vue.js 框架 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 3. LeanCloud SDK (数据库连接工具) -->
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+    <!-- 4. 图标库 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* 1:1 模仿飞书/Lark 风格样式 */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #F5F6F7; }
+        .lark-btn { background-color: #3370ff; transition: all 0.2s; }
+        .lark-btn:hover { background-color: #285dc8; }
+        .lark-btn:disabled { background-color: #94bfff; cursor: not-allowed; }
+        .lark-input { border: 1px solid #dee0e3; transition: border-color 0.2s; }
+        .lark-input:focus { border-color: #3370ff; outline: none; box-shadow: 0 0 0 2px rgba(51, 112, 255, 0.2); }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
+</head>
+<body class="text-gray-800">
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- 顶部导航栏 -->
+        <header class="bg-white shadow-sm h-14 flex items-center px-6 sticky top-0 z-10 border-b border-gray-200">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
+                    <i class="fa-brands fa-wpforms text-lg"></i>
+                </div>
+                <h1 class="font-medium text-lg text-gray-800">项目需求收集</h1>
+                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded ml-2">Web版</span>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-3xl w-full mx-auto p-4 md:p-8">
+            <!-- Tab 切换 -->
+            <div class="flex gap-8 border-b border-gray-200 mb-6 text-sm">
+                <button @click="currentTab = 'form'" 
+                    :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': currentTab === 'form', 'text-gray-500 hover:text-gray-700': currentTab !== 'form'}" 
+                    class="pb-3 px-1 transition-colors">
+                    数据录入
+                </button>
+                <button @click="switchToList" 
+                    :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': currentTab === 'list', 'text-gray-500 hover:text-gray-700': currentTab !== 'list'}" 
+                    class="pb-3 px-1 transition-colors">
+                    数据列表
+                </button>
+            </div>
+
+            <!-- 页面内容 -->
+            <transition name="fade" mode="out-in">
+                
+                <!-- 1. 表单页面 -->
+                <div v-if="currentTab === 'form'" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 md:p-8">
+                    <div class="mb-8 pb-4 border-b border-gray-50">
+                        <h2 class="text-xl font-semibold mb-2 text-gray-800">新建记录</h2>
+                        <p class="text-gray-500 text-sm">填写下方信息并提交，数据将自动同步至云端数据库。</p>
+                    </div>
+
+                    <form @submit.prevent="submitData" class="space-y-6">
+                        <!-- 标题字段 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">需求标题 <span class="text-red-500">*</span></label>
+                            <input v-model="form.title" type="text" placeholder="请输入简短的标题" required 
+                                class="lark-input w-full rounded-md px-3 py-2.5 text-sm bg-white text-gray-900 placeholder-gray-400">
+                        </div>
+
+                        <!-- 优先级字段 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">优先级</label>
+                            <div class="relative">
+                                <select v-model="form.priority" class="lark-input w-full rounded-md px-3 py-2.5 text-sm bg-white appearance-none cursor-pointer">
+                                    <option value="P0 - 紧急">🔴 P0 - 紧急 (最高优)</option>
+                                    <option value="P1 - 高">🟠 P1 - 高</option>
+                                    <option value="P2 - 中">🟡 P2 - 中</option>
+                                    <option value="P3 - 低">🟢 P3 - 低</option>
+                                </select>
+                                <div class="absolute right-3 top-3 text-gray-400 pointer-events-none text-xs">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 描述字段 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">详细描述</label>
+                            <textarea v-model="form.description" rows="5" placeholder="请输入详细的需求背景和描述..." 
+                                class="lark-input w-full rounded-md px-3 py-2.5 text-sm bg-white placeholder-gray-400"></textarea>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <div class="pt-2">
+                 
